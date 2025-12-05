@@ -1,404 +1,575 @@
 package com.example.project.ui.screen.detail
 
-import androidx.compose.foundation.Image
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Bathtub
-import androidx.compose.material.icons.filled.Bed
-import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.ChatBubbleOutline
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.SquareFoot
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.project.R
-import com.example.project.ui.components.PrimaryButton
-import com.example.project.ui.components.SecondaryButton
-import com.example.project.ui.theme.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.example.project.domain.model.Property
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Preview
 @Composable
 fun PropertyDetailPage(
-    onNavigateBack: () -> Unit = {},
-    onCallOwner: () -> Unit = {},
-    onMessageOwner: () -> Unit = {}
+    onNavigateBack: () -> Unit,
+    onCallOwner: () -> Unit,
+    onMessageOwner: (Int, String) -> Unit,  // (ownerId, ownerName)
+    propertyId: String
 ) {
+    val context = LocalContext.current
+    val viewModel: PropertyDetailViewModel = viewModel(
+        factory = PropertyDetailViewModelFactory(context)
+    )
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(propertyId) {
+        try {
+            if (propertyId.isNotBlank() && propertyId != "{propertyId}") {
+                viewModel.loadPropertyDetail(propertyId)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PropertyDetail", "Error loading property: ${e.message}")
+        }
+    }
+
     Scaffold(
-        // --- 1. BARRA SUPERIOR (CON NAVEGACIÓN "BACK") ---
-        topBar = {
-            TopAppBar(
-                title = {
-                    TextButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Volver",
-                            tint = TextPrimary
-                        )
-                        Spacer(modifier = Modifier.width(Dimens.SpacerSmall))
-                        Text(
-                            "Volver a propiedades",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextPrimary
-                        )
-                    }
-                },
-                // Mantenemos el logo
-                actions = {
-                    Image(
-                        painter = painterResource(id = R.drawable.baseline_warehouse_24),
-                        contentDescription = "Logo UPTEL",
-                        modifier = Modifier.height(32.dp).padding(end = Dimens.PaddingMedium),
-                        contentScale = ContentScale.Fit
+        containerColor = Color(0xFFF8F9FA)
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            when (uiState) {
+                is PropertyDetailUiState.Idle,
+                is PropertyDetailUiState.Loading -> {
+                    LoadingSection()
+                }
+                is PropertyDetailUiState.Success -> {
+                    val property = (uiState as PropertyDetailUiState.Success).property
+                    PropertyDetailContent(
+                        property = property,
+                        onNavigateBack = onNavigateBack,
+                        onCallOwner = onCallOwner,
+                        onMessageOwner = { onMessageOwner(property.ownerId, property.ownerName) },
+                        onToggleFavorite = { viewModel.toggleFavorite() }
                     )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+                }
+                is PropertyDetailUiState.Error -> {
+                    ErrorSection(
+                        error = (uiState as PropertyDetailUiState.Error).message,
+                        onRetry = { viewModel.loadPropertyDetail(propertyId) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoadingSection() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(48.dp),
+                strokeWidth = 4.dp,
+                color = MaterialTheme.colorScheme.primary
             )
-        },
-        // --- 2. BARRA INFERIOR (CON ACCIONES) ---
-        bottomBar = {
-            BottomActionsBar(
-                onSave = { /* ... */ },
-                onShare = { /* ... */ }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                "Cargando propiedad...",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
         }
-    ) { paddingValues ->
-        // --- 3. CONTENIDO PRINCIPAL (CON SCROLL) ---
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PropertyDetailContent(
+    property: Property,
+    onNavigateBack: () -> Unit,
+    onCallOwner: () -> Unit,
+    onMessageOwner: () -> Unit,
+    onToggleFavorite: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+    
+    // Preparar lista de imágenes (usar mainImageUrl si no hay images)
+    val imageUrls = remember(property) {
+        if (property.images.isNotEmpty()) {
+            property.images.sortedBy { it.order }.map { it.imageUrl }
+        } else if (!property.mainImageUrl.isNullOrBlank()) {
+            listOf(property.mainImageUrl)
+        } else {
+            emptyList()
+        }
+    }
+    
+    val pagerState = rememberPagerState(pageCount = { maxOf(imageUrls.size, 1) })
+
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(appBackgroundGradient)
-                .padding(paddingValues) // Padding de la TopBar y BottomBar
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
         ) {
+            // ========================================
+            // SLIDER DE IMÁGENES
+            // ========================================
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(400.dp)
+            ) {
+                if (imageUrls.isNotEmpty()) {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize()
+                    ) { page ->
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(imageUrls[page])
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Imagen ${page + 1}",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                } else {
+                    // Placeholder si no hay imágenes
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Home,
+                            contentDescription = null,
+                            modifier = Modifier.size(80.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                        )
+                    }
+                }
 
-            // --- Galería de Imágenes ---
-            ImageGallery()
+                // Gradiente superior
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.5f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
 
-            // --- Contenido de la página ---
+                // Botón volver
+                IconButton(
+                    onClick = onNavigateBack,
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .align(Alignment.TopStart)
+                        .size(44.dp)
+                        .background(Color.White, CircleShape)
+                        .shadow(4.dp, CircleShape)
+                ) {
+                    Icon(
+                        Icons.Default.ArrowBack,
+                        "Volver",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                // Botón favorito
+                IconButton(
+                    onClick = onToggleFavorite,
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .align(Alignment.TopEnd)
+                        .size(44.dp)
+                        .background(Color.White, CircleShape)
+                        .shadow(4.dp, CircleShape)
+                ) {
+                    Icon(
+                        if (property.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        "Favorito",
+                        tint = if (property.isFavorite) Color(0xFFEF4444) else MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                // Indicadores del pager
+                if (imageUrls.size > 1) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 40.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        repeat(imageUrls.size) { index ->
+                            val isSelected = pagerState.currentPage == index
+                            val color by animateColorAsState(
+                                if (isSelected) Color.White else Color.White.copy(alpha = 0.5f),
+                                label = "indicator"
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isSelected) 10.dp else 8.dp)
+                                    .clip(CircleShape)
+                                    .background(color)
+                            )
+                        }
+                    }
+                }
+
+                // Contador de imágenes
+                if (imageUrls.size > 1) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 16.dp, bottom = 40.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.Black.copy(alpha = 0.6f)
+                    ) {
+                        Text(
+                            "${pagerState.currentPage + 1}/${imageUrls.size}",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+            }
+
+            // ========================================
+            // CONTENIDO PRINCIPAL
+            // ========================================
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Dimens.PaddingMedium) // Padding lateral consistente
+                    .offset(y = (-24).dp)
+                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .background(Color.White)
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
+                // Precio destacado
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        text = "$${property.price.toInt()}/mes",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        ),
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+                    )
+                }
 
-                // --- Bloque de Título y Precio ---
-                TitleBlock(
-                    title = "Departamento Moderno cerca de UPP",
-                    price = "$ 5,500",
-                    address = "Calle Universidad 123",
-                    distance = "A 50m de UPP"
-                )
+                // Título y ubicación
+                Column {
+                    Text(
+                        text = property.title,
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "${property.address}, ${property.city}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    }
+                }
 
-                Spacer(modifier = Modifier.height(Dimens.SpacerLarge))
-                Divider()
-                Spacer(modifier = Modifier.height(Dimens.SpacerLarge))
+                // Características
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFF0F4FF)
+                    ),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        FeatureItem(Icons.Default.Bed, "${property.bedrooms}", "Habitaciones")
+                        FeatureItem(Icons.Default.Bathtub, "${property.bathrooms}", "Baños")
+                        FeatureItem(Icons.Default.SquareFoot, "${property.squareMeters.toInt()}", "m²")
+                    }
+                }
 
-                // --- Bloque de Especificaciones (Habitaciones, Baños...) ---
-                SpecsBlock()
+                // Descripción
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Description,
+                            null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Descripción",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        property.description,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            lineHeight = 26.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(Dimens.SpacerLarge))
+                // Información del propietario
+                property.owner?.let { owner ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8F0)),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Avatar
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (!owner.profileImage.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = owner.profileImage,
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Text(
+                                        owner.name.take(1).uppercase(),
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    )
+                                }
+                            }
+                            
+                            Spacer(Modifier.width(16.dp))
+                            
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    owner.name,
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                                Text(
+                                    "Propietario",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                            
+                            Icon(
+                                Icons.Default.Verified,
+                                null,
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
 
-                // --- Bloque de Descripción ---
-                DescriptionBlock(
-                    text = "Amplio departamento moderno a solo 500 metros de la Universidad Politécnica. Ideal para estudiantes. Cuenta con sala, comedor, cocina equipada, 2 habitaciones y 1 baño. El edificio ofrece seguridad 24/7, áreas común y estacionamiento."
-                )
-
-                Spacer(modifier = Modifier.height(Dimens.SpacerLarge))
-
-                // --- Bloque de Características (2 columnas) ---
-                CharacteristicsBlock()
-
-                Spacer(modifier = Modifier.height(Dimens.SpacerLarge))
-
-                // --- Bloque de Ubicación (Mapa) ---
-                LocationBlock()
-
-                Spacer(modifier = Modifier.height(Dimens.SpacerLarge))
-
-                // --- Tarjeta del Propietario ---
-                OwnerCard(
-                    name = "Carlos Rodríguez",
-                    onCall = onCallOwner,
-                    onMessage = onMessageOwner
-                )
-
-                Spacer(modifier = Modifier.height(Dimens.PaddingMedium)) // Padding final
+                // Espacio para los botones flotantes
+                Spacer(Modifier.height(80.dp))
             }
         }
-    }
-}
 
-
-// --- COMPONENTES INTERNOS DE LA PÁGINA ---
-
-@Composable
-private fun ImageGallery() {
-    Column {
-        Image(
-            painter = painterResource(id = R.drawable.placeholder_property), // Imagen principal
-            contentDescription = "Foto principal",
+        // ========================================
+        // BOTONES FLOTANTES
+        // ========================================
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(250.dp),
-            contentScale = ContentScale.Crop
-        )
-        Spacer(modifier = Modifier.height(Dimens.SpacerSmall))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Dimens.PaddingMedium),
-            horizontalArrangement = Arrangement.spacedBy(Dimens.SpacerSmall)
+                .align(Alignment.BottomCenter),
+            shadowElevation = 16.dp,
+            color = Color.White
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.placeholder_property), // Thumbnail 1
-                contentDescription = "Foto 2",
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .height(80.dp)
-                    .clip(RoundedCornerShape(Dimens.CornerRadius)),
-                contentScale = ContentScale.Crop
-            )
-            Image(
-                painter = painterResource(id = R.drawable.placeholder_property), // Thumbnail 2
-                contentDescription = "Foto 3",
-                modifier = Modifier
-                    .weight(1f)
-                    .height(80.dp)
-                    .clip(RoundedCornerShape(Dimens.CornerRadius)),
-                contentScale = ContentScale.Crop
-            )
-        }
-    }
-}
-
-@Composable
-private fun TitleBlock(title: String, price: String, address: String, distance: String) {
-    Column {
-        Spacer(modifier = Modifier.height(Dimens.SpacerLarge))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.weight(1f)
-            )
-            Text(
-                text = price,
-                style = MaterialTheme.typography.headlineMedium,
-                color = UptelBlue,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        Spacer(modifier = Modifier.height(Dimens.SpacerSmall))
-        Text(
-            text = address,
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary
-        )
-        Text(
-            text = distance,
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary
-        )
-    }
-}
-
-@Composable
-private fun SpecsBlock() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceAround
-    ) {
-        SpecItem(icon = Icons.Default.Bed, label = "2 Habitaciones")
-        SpecItem(icon = Icons.Default.Bathtub, label = "1 Baños")
-        SpecItem(icon = Icons.Default.SquareFoot, label = "85 m²")
-    }
-}
-
-@Composable
-private fun SpecItem(icon: ImageVector, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(imageVector = icon, contentDescription = null, tint = UptelBlue, modifier = Modifier.size(28.dp))
-        Spacer(modifier = Modifier.height(Dimens.SpacerSmall))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium
-        )
-    }
-}
-
-@Composable
-private fun DescriptionBlock(text: String) {
-    Column {
-        Text(
-            text = "Descripción",
-            style = MaterialTheme.typography.headlineMedium
-        )
-        Spacer(modifier = Modifier.height(Dimens.SpacerMedium))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary,
-            lineHeight = 22.sp
-        )
-    }
-}
-
-@Composable
-private fun CharacteristicsBlock() {
-    Column {
-        Text(
-            text = "Características",
-            style = MaterialTheme.typography.headlineMedium
-        )
-        Spacer(modifier = Modifier.height(Dimens.SpacerMedium))
-        Row(modifier = Modifier.fillMaxWidth()) {
-            // Columna 1
-            Column(modifier = Modifier.weight(1f)) {
-                CharacteristicItem("Cocina equipada")
-                CharacteristicItem("Agua caliente")
-                CharacteristicItem("Estacionamiento")
-                CharacteristicItem("Amueblado")
-            }
-            // Columna 2
-            Column(modifier = Modifier.weight(1f)) {
-                CharacteristicItem("Internet de alta velocidad")
-                CharacteristicItem("Seguridad 24/7")
-                CharacteristicItem("Área de lavado")
-                CharacteristicItem("Closets amplios")
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onCallOwner,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        2.dp,
+                        MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(Icons.Default.Call, null, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Llamar", fontWeight = FontWeight.SemiBold)
+                }
+                
+                Button(
+                    onClick = onMessageOwner,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(Icons.Default.Chat, null, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Contactar", fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun CharacteristicItem(text: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(bottom = Dimens.SpacerSmall)
+private fun FeatureItem(
+    icon: ImageVector,
+    value: String,
+    label: String
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Icon(
-            painter = painterResource(id = R.drawable.baseline_warehouse_24), // Placeholder (un punto)
-            contentDescription = null,
-            tint = UptelBlue,
-            modifier = Modifier.size(8.dp)
-        )
-        Spacer(modifier = Modifier.width(Dimens.SpacerSmall))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary
-        )
-    }
-}
-
-@Composable
-private fun LocationBlock() {
-    Column {
-        Text(
-            text = "Ubicación",
-            style = MaterialTheme.typography.headlineMedium
-        )
-        Spacer(modifier = Modifier.height(Dimens.SpacerMedium))
-        // Placeholder del mapa
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .clip(RoundedCornerShape(Dimens.CornerRadius))
-                .background(LightGray),
+                .size(52.dp)
+                .background(
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    CircleShape
+                ),
             contentAlignment = Alignment.Center
         ) {
-            Text("Mapa de ubicación", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-        }
-    }
-}
-
-@Composable
-private fun OwnerCard(name: String, onCall: () -> Unit, onMessage: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(Dimens.CornerRadius),
-        elevation = CardDefaults.cardElevation(defaultElevation = Dimens.CardElevation),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Row(
-            modifier = Modifier.padding(Dimens.PaddingMedium),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.ou), // Placeholder
-                contentDescription = "Foto de perfil",
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
+            Icon(
+                icon,
+                null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(26.dp)
             )
-            Spacer(modifier = Modifier.width(Dimens.SpacerMedium))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
-                )
-                Text(
-                    text = "Propietario",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
-                )
-            }
-            // Iconos de contacto
-            IconButton(onClick = onCall) {
-                Icon(Icons.Default.Phone, contentDescription = "Llamar", tint = UptelBlue)
-            }
-            IconButton(onClick = onMessage) {
-                Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Enviar Mensaje", tint = UptelBlue)
-            }
         }
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        )
     }
 }
 
 @Composable
-private fun BottomActionsBar(onSave: () -> Unit, onShare: () -> Unit) {
-    BottomAppBar(
-        containerColor = Color.White,
-        tonalElevation = Dimens.CardElevation
+private fun ErrorSection(error: String, onRetry: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Dimens.PaddingMedium),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(24.dp)
         ) {
-
-            TextButton(onClick = onShare) {
-                Icon(Icons.Default.Share, contentDescription = "Compartir", tint = TextPrimary)
-                Spacer(modifier = Modifier.width(Dimens.SpacerSmall))
-                Text("Compartir", color = TextPrimary)
+            Icon(
+                Icons.Default.ErrorOutline,
+                null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(64.dp)
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "¡Ups! Algo salió mal",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                error,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            Spacer(Modifier.height(24.dp))
+            Button(
+                onClick = onRetry,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Refresh, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Reintentar")
             }
         }
     }

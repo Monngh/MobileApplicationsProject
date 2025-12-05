@@ -14,8 +14,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.example.project.ui.screen.container.ScreenContainer
 import com.example.project.ui.screen.forgot_password.ForgotPasswordScreen
 import com.example.project.ui.screen.login.LoginScreen
-import com.example.project.ui.screen.main.pages.NotificationPage
-import com.example.project.ui.screen.main.pages.ProfilePage
+import com.example.project.ui.screen.pages.NotificationPage
 import com.example.project.ui.screen.register.RegisterScreen
 import com.example.project.ui.theme.ProjectTheme
 

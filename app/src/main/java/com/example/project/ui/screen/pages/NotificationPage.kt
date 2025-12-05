@@ -1,302 +1,485 @@
-package com.example.project.ui.screen.main.pages
+package com.example.project.ui.screen.pages
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.project.R
-import com.example.project.ui.theme.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.project.data.remote.dto.NotificationDTO
+import com.example.project.ui.screen.pages.notifications.NotificationsViewModel
+import com.example.project.ui.screen.pages.notifications.NotificationsViewModelFactory
+import java.text.SimpleDateFormat
+import java.util.*
 
-
-// --- 1. DATA CLASS PARA EL DISEÑO ---
-// Un modelo de datos solo para visualizar el diseño
-data class Notification(
-    val id: Int,
-    val icon: ImageVector,
-    val title: String,
-    val timestamp: String,
-    val description: String,
-    val isUnread: Boolean = false
-)
-
-// --- 2. DATOS DE EJEMPLO (PURO DISEÑO) ---
-val unreadNotifications = listOf(
-    Notification(
-        id = 1,
-        icon = Icons.Default.ChatBubble,
-        title = "Nuevo mensaje",
-        timestamp = "Hace 2 horas",
-        description = "Carlos Rodríguez te ha enviado un mensaje sobre \"Departamento Moderno\"",
-        isUnread = true
-    ),
-    Notification(
-        id = 2,
-        icon = Icons.Default.Home,
-        title = "Nueva propiedad disponible",
-        timestamp = "Hace 1 día",
-        description = "Se ha publicado una nueva propiedad que coincide con tus preferencias cerca de UPP",
-        isUnread = true
-    )
-)
-
-val readNotifications = listOf(
-    Notification(
-        id = 3,
-        icon = Icons.Default.CheckCircle,
-        title = "Verificación completada",
-        timestamp = "Hace 3 días",
-        description = "Tu cuenta ha sido verificada correctamente"
-    ),
-    Notification(
-        id = 4,
-        icon = Icons.Default.ChatBubble,
-        title = "Respuesta recibida",
-        timestamp = "Hace 5 días",
-        description = "Ana López ha respondido a tu consulta sobre el \"Estudio Amueblado\""
-    ),
-    Notification(
-        id = 5,
-        icon = Icons.Default.Star,
-        title = "Recordatorio de visita",
-        timestamp = "Hace 1 semana",
-        description = "Tienes programada una visita para mañana a las 15:00 en \"Apartamento Moderno 2BR\""
-    )
-)
-
-
-// --- 3. PANTALLA DE NOTIFICACIONES ---
 @OptIn(ExperimentalMaterial3Api::class)
-@Preview
 @Composable
 fun NotificationPage(
     onOpenDrawer: () -> Unit = {}
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Image(
-                        painter = painterResource(id = R.drawable.baseline_warehouse_24),
-                        contentDescription = "Logo UPTEL",
-                        modifier = Modifier.height(32.dp),
-                        contentScale = ContentScale.Fit
-                    )
-                },
-                actions = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menú")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
-            )
-        }
-    ) { paddingValues ->
-        LazyColumn(
+    val context = LocalContext.current
+    val viewModel: NotificationsViewModel = viewModel(factory = NotificationsViewModelFactory(context))
+    val uiState by viewModel.uiState.collectAsState()
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8FAFF))
+    ) {
+        // Fondo decorativo sutil
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .background(appBackgroundGradient)
-                .padding(paddingValues),
-            contentPadding = PaddingValues(vertical = Dimens.SpacerLarge)
-        ) {
-
-            // --- ENCABEZADO DE LA PANTALLA ---
-            item {
-                NotificationHeader(
-                    unreadCount = unreadNotifications.size,
-                    onMarkAllAsRead = { /* ... */ }
+                .fillMaxWidth()
+                .height(100.dp)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
+                            Color.Transparent
+                        )
+                    )
                 )
-            }
+        )
 
-            item {
-                Spacer(modifier = Modifier.height(Dimens.SpacerLarge))
-            }
-
-            // --- SECCIÓN "NO LEÍDAS" ---
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Dimens.PaddingMedium),
-                    shape = RoundedCornerShape(Dimens.CornerRadius),
-                    elevation = CardDefaults.cardElevation(defaultElevation = Dimens.CardElevation / 2),
-                    // --- ¡CAMBIO AQUÍ! ---
-                    // Usamos el nuevo color "gris claro" (azul pálido)
-                    colors = CardDefaults.cardColors(containerColor = UnreadNotificationBg)
-                ) {
-                    Column {
-                        unreadNotifications.forEachIndexed { index, notification ->
-                            // Le decimos al item que NO está leído (isUnread = true)
-                            NotificationItem(notification = notification, isUnread = true)
-                            if (index < unreadNotifications.size - 1) {
-                                Divider(modifier = Modifier.padding(horizontal = Dimens.PaddingMedium))
+        Scaffold(
+            topBar = {
+                NotificationHeader(
+                    unreadCount = uiState.unreadCount,
+                    onMarkAllAsRead = { viewModel.markAllAsRead() },
+                    onOpenDrawer = onOpenDrawer
+                )
+            },
+            containerColor = Color.Transparent
+        ) { paddingValues ->
+            
+            when {
+                uiState.isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+                uiState.error != null -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.Warning,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(uiState.error ?: "Error")
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(onClick = { viewModel.loadNotifications() }) {
+                                Text("Reintentar")
                             }
                         }
                     }
                 }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(Dimens.SpacerLarge))
-            }
-
-            // --- SECCIÓN "LEÍDAS" ---
-            items(readNotifications) { notification ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Dimens.PaddingMedium),
-                    shape = RoundedCornerShape(Dimens.CornerRadius),
-                    elevation = CardDefaults.cardElevation(defaultElevation = Dimens.CardElevation / 2),
-                    // Estas se quedan blancas, como en el diseño
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
-                ) {
-                    // Le decimos al item que SÍ está leído (isUnread = false)
-                    NotificationItem(notification = notification, isUnread = false)
+                uiState.notifications.isEmpty() -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.NotificationsNone,
+                                contentDescription = null,
+                                modifier = Modifier.size(80.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                "No tienes notificaciones",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.height(Dimens.SpacerMedium))
+                else -> {
+                    val unreadNotifications = uiState.notifications.filter { !it.isRead }
+                    val readNotifications = uiState.notifications.filter { it.isRead }
+                    
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        contentPadding = PaddingValues(vertical = 16.dp)
+                    ) {
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
+
+                        // --- SECCIÓN "NO LEÍDAS" ---
+                        if (unreadNotifications.isNotEmpty()) {
+                            item {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp)
+                                        .shadow(
+                                            elevation = 4.dp,
+                                            shape = RoundedCornerShape(16.dp),
+                                            clip = true
+                                        ),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color(0xFFE3F2FD)
+                                    )
+                                ) {
+                                    Column {
+                                        unreadNotifications.forEachIndexed { index, notification ->
+                                            NotificationItemElegante(
+                                                notification = notification,
+                                                isUnread = true,
+                                                onMarkAsRead = { viewModel.markAsRead(notification.id) },
+                                                onDelete = { viewModel.deleteNotification(notification.id) }
+                                            )
+                                            if (index < unreadNotifications.size - 1) {
+                                                HorizontalDivider(
+                                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                                    color = Color(0xFFBBDEFB)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            item { Spacer(modifier = Modifier.height(20.dp)) }
+                        }
+
+                        // --- SECCIÓN "LEÍDAS" ---
+                        if (readNotifications.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "Anteriores",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                                )
+                            }
+                        }
+
+                        items(readNotifications) { notification ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                                    .shadow(
+                                        elevation = 2.dp,
+                                        shape = RoundedCornerShape(16.dp),
+                                        clip = true
+                                    ),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White)
+                            ) {
+                                NotificationItemElegante(
+                                    notification = notification,
+                                    isUnread = false,
+                                    onMarkAsRead = { },
+                                    onDelete = { viewModel.deleteNotification(notification.id) }
+                                )
+                            }
+                        }
+
+                        item { Spacer(modifier = Modifier.height(80.dp)) }
+                    }
+                }
             }
         }
     }
 }
-// --- 4. COMPONENTE HEADER ---
+
 @Composable
 private fun NotificationHeader(
     unreadCount: Int,
-    onMarkAllAsRead: () -> Unit
+    onMarkAllAsRead: () -> Unit,
+    onOpenDrawer: () -> Unit
 ) {
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = Dimens.PaddingMedium), // Padding lateral
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
+            .shadow(elevation = 4.dp),
+        color = Color.White
     ) {
-        // Columna de Títulos
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "Notificaciones",
-                style = MaterialTheme.typography.headlineMedium
-            )
-            Spacer(modifier = Modifier.height(Dimens.SpacerXSmall))
-            Text(
-                text = "Tienes $unreadCount notificaciones sin leer",
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
-            )
-        }
+        Column(
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 40.dp, bottom = 16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    IconButton(
+                        onClick = onOpenDrawer,
+                        modifier = Modifier
+                            .background(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                CircleShape
+                            )
+                            .size(48.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Menu,
+                            contentDescription = "Menú",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
 
-        Spacer(modifier = Modifier.width(Dimens.SpacerSmall))
+                    Column {
+                        Text(
+                            text = "Notificaciones",
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        )
+                        if (unreadCount > 0) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                )
+                                Text(
+                                    text = "$unreadCount no leídas",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
 
-        // Botón de Marcar Leídas
-        TextButton(onClick = onMarkAllAsRead) {
-            Text(
-                text = "Marcar todas como leídas",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = UptelBlue
-                ),
-                textAlign = TextAlign.End // Alinear a la derecha por si se parte en 2 líneas
-            )
+                if (unreadCount > 0) {
+                    TextButton(
+                        onClick = onMarkAllAsRead,
+                        modifier = Modifier.height(40.dp)
+                    ) {
+                        Text(
+                            text = "Marcar todas",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = "Marcar todas",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }
 
-// --- 5. COMPONENTE ITEM DE NOTIFICACIÓN (ACTUALIZADO) ---
 @Composable
-private fun NotificationItem(
-    notification: Notification,
-    isUnread: Boolean // <-- Nuevo parámetro
+private fun NotificationItemElegante(
+    notification: NotificationDTO,
+    isUnread: Boolean,
+    onMarkAsRead: () -> Unit,
+    onDelete: () -> Unit
 ) {
+    // Mapear tipo a icono
+    val icon: ImageVector = when (notification.type) {
+        "message" -> Icons.Default.ChatBubble
+        "property" -> Icons.Default.Home
+        "verification" -> Icons.Default.CheckCircle
+        "reminder" -> Icons.Default.Star
+        else -> Icons.Default.Notifications
+    }
+
+    // Formatear tiempo relativo
+    val timeAgo = formatTimeAgo(notification.createdAt)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(Dimens.PaddingMedium),
+            .padding(16.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // Icono
-        Icon(
-            imageVector = notification.icon,
-            contentDescription = notification.title,
-            tint = UptelBlue,
-            modifier = Modifier.size(24.dp)
-        )
+        // Icono con fondo
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .background(
+                    if (isUnread) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                    else Color(0xFFF0F4F8),
+                    CircleShape
+                )
+                .clip(CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = notification.title,
+                tint = if (isUnread) MaterialTheme.colorScheme.primary 
+                       else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.size(24.dp)
+            )
+        }
 
-        Spacer(modifier = Modifier.width(Dimens.SpacerMedium))
+        Spacer(modifier = Modifier.width(16.dp))
 
-        // Columna de Texto
         Column(modifier = Modifier.weight(1f)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = notification.title,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        )
+                        if (isUnread) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = notification.description,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
                 Text(
-                    text = notification.title,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                    color = TextPrimary
-                )
-                Text(
-                    text = notification.timestamp,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = TextSecondary
+                    text = timeAgo,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    )
                 )
             }
-            Spacer(modifier = Modifier.height(Dimens.SpacerXSmall))
-            Text(
-                text = notification.description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
-            )
-        }
 
-        Spacer(modifier = Modifier.width(Dimens.SpacerSmall))
+            // Acciones
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isUnread) {
+                    TextButton(
+                        onClick = onMarkAsRead,
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = "Marcar como leída",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Marcar",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
 
-        // --- ¡CAMBIO AQUÍ! ---
-        // Iconos de Acción
-        Row {
-            // El "Check" solo aparece si la notificación NO está leída
-            if (isUnread) {
                 IconButton(
-                    onClick = { /* Lógica de marcar leída */ },
-                    modifier = Modifier.size(24.dp)
+                    onClick = onDelete,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                            CircleShape
+                        )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Marcar como leída",
-                        tint = TextSecondary
+                        Icons.Default.Close,
+                        contentDescription = "Eliminar",
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
-
-            // La "X" (descartar) aparece siempre
-            IconButton(
-                onClick = { /* Lógica de descartar */ },
-                modifier = Modifier.size(24.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Descartar",
-                    tint = TextSecondary
-                )
-            }
         }
+    }
+}
+
+private fun formatTimeAgo(dateString: String): String {
+    return try {
+        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+        val date = format.parse(dateString.replace(".000000Z", "")) ?: return dateString
+        val now = Date()
+        val diffMs = now.time - date.time
+        val diffMinutes = diffMs / (1000 * 60)
+        val diffHours = diffMs / (1000 * 60 * 60)
+        val diffDays = diffMs / (1000 * 60 * 60 * 24)
+
+        when {
+            diffMinutes < 1 -> "Ahora"
+            diffMinutes < 60 -> "Hace ${diffMinutes}m"
+            diffHours < 24 -> "Hace ${diffHours}h"
+            diffDays < 7 -> "Hace ${diffDays}d"
+            else -> SimpleDateFormat("dd/MM", Locale.getDefault()).format(date)
+        }
+    } catch (e: Exception) {
+        dateString
     }
 }

@@ -1,6 +1,5 @@
 package com.example.project.ui.screen.main.pages
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -10,223 +9,375 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.project.R
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.project.ui.screen.pages.profile.ProfileViewModel  // ← IMPORTAR
 import com.example.project.ui.theme.*
 
-// --- DATA CLASS Y DATOS DE EJEMPLO (COMO ANTES) ---
-data class ProfileMessage(
-    val id: Int,
-    val senderName: String,
-    val subject: String,
-    val preview: String,
-    val timestamp: String,
-    val senderImage: Int
-)
-
-val messageList = listOf(
-    ProfileMessage(1, "Carlos Rodríguez", "Re: Departamento Moderno", "Hola, me interesa...", "Hace 2 días", R.drawable.profile_avatar_placeholder),
-    ProfileMessage(2, "Laura Sánchez", "Re: Estudio Amueblado", "¿El departamento incluye...", "Hace 5 horas", R.drawable.profile_avatar_placeholder)
-)
-
-// --- ESTA ES LA PÁGINA DE PERFIL REAL ---
-@Composable
-fun ProfilePage(
-    paddingValues: PaddingValues, // <-- Recibe el padding del Scaffold de MainScreen
-    onNavigateToSaved: () -> Unit,
-    onNavigateToMessages: () -> Unit,
-    onLogout: () -> Unit
-) {
-    // Columna principal con el fondo degradado y scroll
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(appBackgroundGradient)
-            .padding(paddingValues) // <-- Aplica el padding
-            .verticalScroll(rememberScrollState())
-    ) {
-        Spacer(modifier = Modifier.height(Dimens.SpacerLarge))
-
-        // --- BLOQUE 1: TARJETA DE PERFIL ---
-        ProfileCard(
-            modifier = Modifier.padding(horizontal = Dimens.PaddingMedium),
-            onNavigateToSaved = onNavigateToSaved,
-            onNavigateToMessages = onNavigateToMessages,
-            onLogout = onLogout
-        )
-
-        Spacer(modifier = Modifier.height(Dimens.SpacerLarge))
-
-        // --- BLOQUE 2: SECCIÓN DE MENSAJES ---
-        Column(
-            modifier = Modifier.padding(horizontal = Dimens.PaddingMedium)
-        ) {
-            Text(
-                text = "Mis Mensajes",
-                style = MaterialTheme.typography.headlineMedium
-            )
-            Spacer(modifier = Modifier.height(Dimens.SpacerMedium))
-            messageList.forEach { message ->
-                MessageItemCard(
-                    message = message,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(Dimens.SpacerMedium))
-            }
-        }
-        Spacer(modifier = Modifier.height(Dimens.PaddingMedium)) // Padding final
-    }
-}
-
-
-// --- COMPONENTE TARJETA DE PERFIL ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProfileCard(
-    modifier: Modifier = Modifier,
+fun ProfilePage(
+    paddingValues: PaddingValues,
+    token: String?,
     onNavigateToSaved: () -> Unit,
     onNavigateToMessages: () -> Unit,
-    onLogout: () -> Unit
+    onNavigateToNotifications: () -> Unit,  // ← NUEVO
+    onEditProfile: () -> Unit,
+    onLogout: () -> Unit,
+    viewModel: ProfileViewModel = viewModel()
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(Dimens.CornerRadius),
-        elevation = CardDefaults.cardElevation(defaultElevation = Dimens.CardElevation),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(token) {              // ← CAMBIAR Unit por token
+        viewModel.initialize(token)       // ← PASAR TOKEN REAL
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(Dimens.PaddingMedium),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.ou), // Placeholder
-                contentDescription = "Foto de perfil",
-                modifier = Modifier.size(100.dp).clip(CircleShape),
-                contentScale = ContentScale.Crop
-            )
-            Spacer(modifier = Modifier.height(Dimens.SpacerMedium))
-            Text(text = "Ana García", style = MaterialTheme.typography.headlineMedium)
-            Text(text = "estudiante", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-            Spacer(modifier = Modifier.height(Dimens.SpacerLarge))
+            // Header con avatar elegante
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(120.dp)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primary,
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                )
+                            ),
+                            CircleShape
+                        )
+                        .clip(CircleShape)
+                        .shadow(8.dp, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = uiState.profile?.name?.firstOrNull()?.uppercase() ?: "U",  // ← USAR uiState.profile
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    )
+                }
 
-            ProfileNavItem(
-                label = "Mi Perfil",
-                icon = Icons.Outlined.Person,
-                isSelected = true, // Marcado como seleccionado
-                onClick = { /* Ya estamos aquí */ }
-            )
-            ProfileNavItem(
-                label = "Guardados",
-                icon = Icons.Outlined.BookmarkBorder,
-                isSelected = false,
-                onClick = onNavigateToSaved
-            )
-            ProfileNavItem(
-                label = "Mensajes",
-                icon = Icons.Outlined.ChatBubbleOutline,
-                isSelected = false,
-                badgeCount = 1,
-                onClick = onNavigateToMessages
-            )
-            ProfileNavItem(
-                label = "Cerrar Sesión",
-                icon = Icons.Outlined.Logout,
-                isSelected = false,
-                isLogout = true,
-                onClick = onLogout
-            )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = uiState.profile?.name ?: "Cargando...",  // ← USAR uiState.profile
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+
+                Text(
+                    text = uiState.profile?.email ?: "",  // ← USAR uiState.profile
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Surface(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Text(
+                        text = uiState.profile?.accountType ?: "Usuario",  // ← USAR uiState.profile
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
+            }
+
+            // Tarjeta de estadísticas
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 20.dp)
+                    .shadow(
+                        elevation = 4.dp,
+                        shape = RoundedCornerShape(20.dp),
+                        clip = true
+                    ),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    StatCardElegante(
+                        value = uiState.profile?.propertiesCount?.toString() ?: "0",  // ← USAR uiState.profile
+                        label = "Propiedades",
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Divider(
+                        modifier = Modifier
+                            .height(60.dp)
+                            .width(1.dp),
+                        color = Color(0xFFE2E8F0)
+                    )
+
+                    StatCardElegante(
+                        value = uiState.profile?.favoritesCount?.toString() ?: "0",  // ← USAR uiState.profile
+                        label = "Favoritos",
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+
+                    Divider(
+                        modifier = Modifier
+                            .height(60.dp)
+                            .width(1.dp),
+                        color = Color(0xFFE2E8F0)
+                    )
+
+                    StatCardElegante(
+                        value = "0",  // TODO: Agregar messagesCount en backend
+                        label = "Mensajes",
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+            }
+
+            // Opciones de menú
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .shadow(
+                        elevation = 2.dp,
+                        shape = RoundedCornerShape(16.dp),
+                        clip = true
+                    ),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Column {
+                    ProfileMenuItemElegante(
+                        icon = Icons.Outlined.Person,
+                        title = "Editar Perfil",
+                        subtitle = "Actualiza tu información personal",
+                        onClick = onEditProfile  // ← USAR CALLBACK
+                    )
+
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp), color = Color(0xFFF1F5F9))
+
+                    ProfileMenuItemElegante(
+                        icon = Icons.Outlined.BookmarkBorder,
+                        title = "Mis Favoritos",
+                        subtitle = "Propiedades guardadas",
+                        onClick = onNavigateToSaved
+                    )
+
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp), color = Color(0xFFF1F5F9))
+
+                    ProfileMenuItemElegante(
+                        icon = Icons.Outlined.ChatBubbleOutline,
+                        title = "Mensajes",
+                        subtitle = "Conversaciones activas",
+                        onClick = onNavigateToMessages
+                    )
+
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp), color = Color(0xFFF1F5F9))
+
+                    ProfileMenuItemElegante(
+                        icon = Icons.Outlined.Notifications,
+                        title = "Notificaciones",
+                        subtitle = "Ver tus notificaciones",
+                        onClick = onNavigateToNotifications
+                    )
+                }
+            }
+
+
+
+            // Botón de cerrar sesión
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .shadow(
+                        elevation = 2.dp,
+                        shape = RoundedCornerShape(16.dp),
+                        clip = true
+                    ),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2))
+            ) {
+                ProfileMenuItemElegante(
+                    icon = Icons.Outlined.ExitToApp,
+                    title = "Cerrar Sesión",
+                    subtitle = "Salir de tu cuenta",
+                    onClick = onLogout,
+                    iconColor = MaterialTheme.colorScheme.error,
+                    textColor = MaterialTheme.colorScheme.error
+                )
+            }
+
+            Spacer(modifier = Modifier.height(40.dp))
+        }
+
+        if (uiState.isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    modifier = Modifier
+                        .width(140.dp)
+                        .shadow(12.dp, RoundedCornerShape(20.dp)),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(32.dp),
+                            strokeWidth = 3.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Cargando...",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
-// --- COMPONENTE ITEM DE NAVEGACIÓN (Para el ProfileCard) ---
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProfileNavItem(
+private fun StatCardElegante(
+    value: String,
     label: String,
-    icon: ImageVector,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    badgeCount: Int? = null,
-    isLogout: Boolean = false
+    color: Color
 ) {
-    val textColor = if (isLogout) ErrorRed else if (isSelected) MaterialTheme.colorScheme.primary else TextPrimary
-    val iconColor = if (isLogout) ErrorRed else if (isSelected) MaterialTheme.colorScheme.primary else TextSecondary
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+        )
 
-    NavigationDrawerItem(
-        label = { Text(label, fontWeight = FontWeight.SemiBold) },
-        icon = { Icon(icon, contentDescription = null) },
-        selected = isSelected,
-        onClick = onClick,
-        badge = {
-            if (badgeCount != null) {
-                Badge { Text(badgeCount.toString()) }
-            }
-        },
-        colors = NavigationDrawerItemDefaults.colors(
-            selectedContainerColor = UnreadNotificationBg,
-            unselectedContainerColor = Color.Transparent,
-            selectedIconColor = iconColor,
-            selectedTextColor = textColor,
-            unselectedIconColor = iconColor,
-            unselectedTextColor = textColor
-        ),
-        modifier = Modifier.padding(bottom = Dimens.SpacerSmall)
-    )
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+        )
+    }
 }
 
 @Composable
-private fun MessageItemCard(
-    message: ProfileMessage,
-    modifier: Modifier = Modifier // <-- Acepta un modifier
+private fun ProfileMenuItemElegante(
+    icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    onClick: () -> Unit,
+    iconColor: Color = MaterialTheme.colorScheme.primary,
+    textColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
-    Card(
-        // Aplicamos el modifier que pasamos
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(Dimens.CornerRadius),
-        elevation = CardDefaults.cardElevation(defaultElevation = Dimens.CardElevation / 2),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+    Surface(
+        onClick = onClick,
+        color = Color.Transparent,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        // (El contenido interno del Row se mantiene igual)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(Dimens.PaddingMedium),
-            verticalAlignment = Alignment.Top
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Image(
-                painter = painterResource(id = message.senderImage),
-                contentDescription = message.senderName,
-                modifier = Modifier.size(40.dp).clip(CircleShape),
-                contentScale = ContentScale.Crop
-            )
-            Spacer(modifier = Modifier.width(Dimens.SpacerMedium))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = message.senderName, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold), color = TextPrimary)
-                    Text(text = message.timestamp, style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-                }
-                Spacer(modifier = Modifier.height(Dimens.SpacerXSmall))
-                Text(text = message.subject, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                Spacer(modifier = Modifier.height(Dimens.SpacerXSmall))
-                Text(text = message.preview, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, maxLines = 2)
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(
+                        iconColor.copy(alpha = 0.1f),
+                        CircleShape
+                    )
+                    .clip(CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = iconColor,
+                    modifier = Modifier.size(24.dp)
+                )
             }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = textColor
+                    )
+                )
+
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+            }
+
+            Icon(
+                Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+            )
         }
     }
 }
